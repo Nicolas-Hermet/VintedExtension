@@ -1,0 +1,83 @@
+/* Extension Vinted - Styles pour le filtre par taille */
+
+.vinted-size-filter-container {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  margin: 16px 0;
+  padding: 16px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.vinted-size-filter-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2d2d2d;
+  margin-bottom: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.vinted-size-filter-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.vinted-size-filter-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+  color: #2d2d2d;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  user-select: none;
+  transition: opacity 0.2s ease;
+}
+
+.vinted-size-filter-label:hover {
+  opacity: 0.8;
+}
+
+.vinted-size-filter-checkbox {
+  margin-right: 6px;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #09b1ba;
+  flex-shrink: 0;
+}
+
+.vinted-size-filter-checkbox:focus {
+  outline: 2px solid #09b1ba;
+  outline-offset: 2px;
+}
+
+.vinted-size-filter-label span {
+  white-space: nowrap;
+}
+
+/* Responsive pour petits écrans */
+@media (max-width: 768px) {
+  .vinted-size-filter-container {
+    padding: 12px;
+    margin: 12px 0;
+  }
+
+  .vinted-size-filter-checkboxes {
+    gap: 8px;
+  }
+
+  .vinted-size-filter-label {
+    font-size: 13px;
+  }
+
+  .vinted-size-filter-checkbox {
+    width: 16px;
+    height: 16px;
+    margin-right: 4px;
+  }
+}
