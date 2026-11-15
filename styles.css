@@ -1,4 +1,4 @@
-/* Extension Vinted - Styles pour le filtre par taille */
+/* Vinted size filter - filter styles */
 
 .vinted-size-filter-container {
   position: sticky;
@@ -60,7 +60,7 @@
   white-space: nowrap;
 }
 
-/* Responsive pour petits écrans */
+/* Small screens */
 @media (max-width: 768px) {
   .vinted-size-filter-container {
     padding: 12px;
