@@ -21,6 +21,8 @@
   let anchor = null;              // élément devant lequel le filtre est inséré
   let lastUrl = location.href;
   let scheduled = null;
+  let itemsFirstSeenAt = 0;       // date à laquelle des articles ont été vus pour la 1re fois
+  const HYDRATION_FALLBACK_MS = 2500;
 
   function isMemberPage() {
     return /^\/member\/\d+/.test(location.pathname);
@@ -58,9 +60,16 @@
 
   /**
    * Vrai quand React a hydraté l'élément (il porte alors une clé __reactFiber$xxx).
+   * Ces propriétés ne sont visibles que depuis le monde principal de la page,
+   * d'où "world": "MAIN" dans le manifest. Par sécurité, si on ne les voit
+   * toujours pas après un délai, on considère la page hydratée.
    */
   function isHydrated(el) {
-    return Object.keys(el).some(k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'));
+    if (Object.keys(el).some(k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'))) {
+      return true;
+    }
+    if (!itemsFirstSeenAt) itemsFirstSeenAt = Date.now();
+    return Date.now() - itemsFirstSeenAt > HYDRATION_FALLBACK_MS;
   }
 
   /**
@@ -187,6 +196,7 @@
       if (location.href !== lastUrl) {
         lastUrl = location.href;
         checkedStates = new Map();
+        itemsFirstSeenAt = 0;
         removeFilter();
       }
       sync();
