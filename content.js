@@ -1,54 +1,65 @@
-// Extension Vinted - Filtrage par taille
-// Détecte la grille d'articles (profil membre ou "Dressing du membre" sur une
-// page produit) et ajoute un filtre par taille au-dessus.
+// Vinted size filter - content script (runs in the extension's isolated world).
 //
-// Vinted est une application React rendue côté serveur. Si l'on insère le
-// filtre dans le DOM avant que React n'ait fini d'« hydrater » la page, React
-// détecte un décalage et re-rend le sous-arbre : le filtre apparaît quelques
-// dixièmes de seconde puis disparaît. On attend donc l'hydratation, et on
-// surveille en permanence que le filtre est toujours attaché pour le
-// ré-insérer si Vinted re-rend la grille.
+// Finds the item grid (member profile page, or "Member's wardrobe" section on
+// an item page) and inserts a size filter above it.
+//
+// Vinted is a server-side rendered React app: anything inserted before React
+// hydrates the page is wiped out. We wait for hydration-probe.js to report
+// that hydration is done, then keep watching the DOM to re-insert the filter
+// whenever Vinted re-renders the grid.
 
 (function() {
   'use strict';
 
-  const ATTR = 'data-vinted-size-filter';
+  const ext = globalThis.browser ?? globalThis.chrome;
+
+  const FILTER_ATTR = 'data-vinted-size-filter';
+  const HYDRATED_EVENT = 'vinted-size-filter:hydrated';
+  const PING_EVENT = 'vinted-size-filter:ping';
+  // Used if the probe never answers (e.g. React internals changed).
+  const HYDRATION_FALLBACK_MS = 4000;
+  const SYNC_DEBOUNCE_MS = 150;
+  const SIZE_SEPARATOR = ' · ';
 
   let filterContainer = null;
-  let itemsMap = new Map();       // conteneur DOM d'un article -> tailles
-  let sizeCheckboxes = new Map(); // taille -> checkbox
-  let checkedStates = new Map();  // taille -> coché ? (persiste entre re-rendus)
-  let anchor = null;              // élément devant lequel le filtre est inséré
+  let itemsMap = new Map();       // item DOM container -> sizes
+  let sizeCheckboxes = new Map(); // size -> checkbox
+  let checkedStates = new Map();  // size -> checked (survives re-renders)
+  let anchor = null;              // element the filter is inserted before
   let lastUrl = location.href;
   let scheduled = null;
-  let itemsFirstSeenAt = 0;       // date à laquelle des articles ont été vus pour la 1re fois
-  const HYDRATION_FALLBACK_MS = 2500;
+  let pageHydrated = false;
+  let itemsFirstSeenAt = 0;
+
+  function t(key) {
+    return ext.i18n.getMessage(key);
+  }
 
   function isMemberPage() {
     return /^\/member\/\d+/.test(location.pathname);
   }
 
   /**
-   * Retourne la liste des articles et l'élément devant lequel insérer le filtre.
-   * Les classes CSS de Vinted sont hashées (ex: "HmDNda_feed-grid"), on se
-   * base donc uniquement sur les attributs data-testid.
+   * Returns the items, the element to insert the filter before, and the DOM
+   * container to hide for each item. Vinted's CSS classes are hashed
+   * (e.g. "HmDNda_feed-grid"), so we rely on data-testid attributes only.
    */
   function findSection() {
     if (isMemberPage()) {
       const items = Array.from(document.querySelectorAll('[data-testid="grid-item"]'));
       if (items.length === 0) return null;
-      const grid = items[0].parentElement; // la grille (classe *_feed-grid)
+      const grid = items[0].parentElement;
       if (!grid || !grid.parentElement) return null;
       return { items, anchor: grid, containers: items };
     }
 
-    // Page produit : section "Dressing du membre"
+    // Item page: "Member's wardrobe" section
     const plugin = document.querySelector('[data-testid="item-page-other_user_items-plugin"]');
     if (!plugin) return null;
     const items = Array.from(plugin.querySelectorAll('[data-testid^="other_user_items-"]'))
       .filter(el => /^other_user_items-\d+$/.test(el.getAttribute('data-testid')));
     if (items.length === 0) return null;
-    // Le conteneur à masquer est la cellule de grille qui enveloppe l'article
+    // Hide the grid cell wrapping the item, not just the item card.
     const containers = items.map(item => {
       const cell = item.parentElement;
       return cell && cell.parentElement && cell.parentElement.getAttribute('data-testid') === 'item-view-items'
@@ -58,26 +69,18 @@
     return { items, anchor: plugin, containers };
   }
 
-  /**
-   * Vrai quand React a hydraté l'élément (il porte alors une clé __reactFiber$xxx).
-   * Ces propriétés ne sont visibles que depuis le monde principal de la page,
-   * d'où "world": "MAIN" dans le manifest. Par sécurité, si on ne les voit
-   * toujours pas après un délai, on considère la page hydratée.
-   */
-  function isHydrated(el) {
-    if (Object.keys(el).some(k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'))) {
-      return true;
-    }
+  function isReadyToInsert() {
+    if (pageHydrated) return true;
     if (!itemsFirstSeenAt) itemsFirstSeenAt = Date.now();
     return Date.now() - itemsFirstSeenAt > HYDRATION_FALLBACK_MS;
   }
 
   /**
-   * Format attendu: "W31 | FR 40 · Très bon état" -> "W31 | FR 40"
+   * Expected subtitle format: "W31 | FR 40 · Très bon état" -> "W31 | FR 40"
    */
   function extractSize(text) {
     if (!text) return null;
-    const size = text.split(' · ')[0].trim();
+    const size = text.split(SIZE_SEPARATOR)[0].trim();
     return size || null;
   }
 
@@ -99,12 +102,13 @@
   function buildFilter(uniqueSizes) {
     const container = document.createElement('div');
     container.className = 'vinted-size-filter-container';
-    container.setAttribute(ATTR, '');
-    container.setAttribute('data-extension', 'vinted-size-filter');
+    container.setAttribute(FILTER_ATTR, '');
+    container.setAttribute('role', 'group');
+    container.setAttribute('aria-label', t('filterTitle'));
 
     const title = document.createElement('div');
     title.className = 'vinted-size-filter-title';
-    title.textContent = 'Filtrer par taille:';
+    title.textContent = t('filterTitle');
     container.appendChild(title);
 
     const list = document.createElement('div');
@@ -125,6 +129,7 @@
         applyFilter();
       });
 
+      // Size labels come from Vinted's own listing data, not from us.
       const span = document.createElement('span');
       span.textContent = size;
 
@@ -147,7 +152,7 @@
   }
 
   function removeFilter() {
-    document.querySelectorAll('[' + ATTR + ']').forEach(el => el.remove());
+    document.querySelectorAll('[' + FILTER_ATTR + ']').forEach(el => el.remove());
     filterContainer = null;
     anchor = null;
     itemsMap.forEach((_, el) => { el.style.display = ''; });
@@ -155,7 +160,7 @@
   }
 
   /**
-   * Crée ou met à jour le filtre. Retourne true si le filtre est en place.
+   * Creates or refreshes the filter. Returns true when the filter is in place.
    */
   function sync() {
     const section = findSection();
@@ -164,8 +169,7 @@
       return false;
     }
 
-    // Ne rien insérer avant l'hydratation React, sinon le filtre est effacé.
-    if (!isHydrated(section.items[0])) return false;
+    if (!isReadyToInsert()) return false;
 
     const uniqueSizes = extractSizes(section);
     if (uniqueSizes.length === 0) return false;
@@ -178,7 +182,7 @@
       filterContainer.dataset.sizes !== sizesKey;
 
     if (needsRebuild) {
-      document.querySelectorAll('[' + ATTR + ']').forEach(el => el.remove());
+      document.querySelectorAll('[' + FILTER_ATTR + ']').forEach(el => el.remove());
       filterContainer = buildFilter(uniqueSizes);
       filterContainer.dataset.sizes = sizesKey;
       anchor = section.anchor;
@@ -196,17 +200,23 @@
       if (location.href !== lastUrl) {
         lastUrl = location.href;
         checkedStates = new Map();
-        itemsFirstSeenAt = 0;
         removeFilter();
       }
       sync();
-    }, 150);
+    }, SYNC_DEBOUNCE_MS);
   }
 
-  // Observer permanent : nouveaux articles, re-rendu React, navigation SPA.
+  document.addEventListener(HYDRATED_EVENT, () => {
+    if (pageHydrated) return;
+    pageHydrated = true;
+    scheduleSync();
+  });
+
+  // Permanent observer: new items (infinite scroll), React re-renders and
+  // client-side navigation. Mutations inside our own filter are ignored.
   new MutationObserver(mutations => {
     for (const m of mutations) {
-      if (m.target === filterContainer || (filterContainer && filterContainer.contains(m.target))) continue;
+      if (filterContainer && filterContainer.contains(m.target)) continue;
       scheduleSync();
       return;
     }
@@ -214,7 +224,7 @@
 
   window.addEventListener('popstate', scheduleSync);
 
-  // Filet de sécurité pendant les premières secondes (hydratation tardive).
+  // Safety net while the page settles; also drives the hydration fallback.
   let tries = 0;
   const poll = setInterval(() => {
     tries++;
@@ -222,5 +232,7 @@
     if ((ok && tries > 3) || tries > 60) clearInterval(poll);
   }, 500);
 
+  // Ask the probe whether hydration already happened before we started.
+  document.dispatchEvent(new CustomEvent(PING_EVENT));
   scheduleSync();
 })();

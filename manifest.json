@@ -1,21 +1,47 @@
 {
   "manifest_version": 3,
-  "name": "Vinted - Filtrage par taille",
-  "version": "1.0.1",
-  "description": "Filtrez les articles du dressing du membre par taille sur Vinted",
-  "permissions": [
-    "activeTab"
-  ],
+  "name": "__MSG_extName__",
+  "version": "1.1.0",
+  "description": "__MSG_extDescription__",
+  "default_locale": "fr",
   "content_scripts": [
     {
       "matches": [
         "*://www.vinted.fr/items/*",
         "*://www.vinted.fr/member/*"
       ],
-      "js": ["content.js"],
-      "css": ["styles.css"],
+      "js": [
+        "hydration-probe.js"
+      ],
       "run_at": "document_idle",
       "world": "MAIN"
+    },
+    {
+      "matches": [
+        "*://www.vinted.fr/items/*",
+        "*://www.vinted.fr/member/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_idle"
     }
-  ]
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "vinted-size-filter@nicolas-hermet.github",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    },
+    "gecko_android": {
+      "strict_min_version": "142.0"
+    }
+  }
 }

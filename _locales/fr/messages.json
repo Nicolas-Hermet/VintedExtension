@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "Vinted - Filtrage par taille",
+    "description": "Extension name shown in the browser's extension manager."
+  },
+  "extDescription": {
+    "message": "Filtrez les articles du dressing d'un membre par taille sur Vinted",
+    "description": "Extension description shown in the browser's extension manager."
+  },
+  "filterTitle": {
+    "message": "Filtrer par taille :",
+    "description": "Title displayed above the size checkboxes."
+  }
+}

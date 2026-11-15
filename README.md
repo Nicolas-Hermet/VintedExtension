@@ -1,76 +1,84 @@
-# Extension Chrome Vinted - Filtrage par taille
+# Vinted size filter
 
-Extension Chrome qui permet de filtrer les articles par taille sur Vinted, à la fois sur les pages de produits (section "Dressing du membre") et sur les pages de profil membre.
+Browser extension for **Chrome** and **Firefox** that lets you filter items by size on Vinted, both on item pages ("Dressing du membre" section) and on member profile pages.
 
-## Fonctionnalités
+## Features
 
-- 🎯 Détection automatique de la section "Dressing du membre" (pages produits)
-- 👤 Support des pages de profil membre (filtrage des annonces)
-- ✅ Interface de filtrage avec checkboxes pour chaque taille unique
-- 🔍 Filtrage en temps réel des articles selon les tailles sélectionnées
-- 🔄 Support du scroll infini (chargement dynamique des articles)
-- 🎨 Design intégré au style Vinted
+- Detects the "Dressing du membre" section on item pages
+- Supports member profile pages
+- One checkbox per size found in the listed items, all checked by default
+- Filters items instantly as you check or uncheck sizes
+- Follows infinite scroll: new sizes are added and your choices are kept
+- Survives Vinted's React hydration and client-side navigation
 
 ## Installation
 
-1. Clonez ou téléchargez ce dépôt
-2. Ouvrez Chrome et allez dans `chrome://extensions/`
-3. Activez le "Mode développeur" (en haut à droite)
-4. Cliquez sur "Charger l'extension non empaquetée"
-5. Sélectionnez le dossier contenant les fichiers de l'extension
+### Chrome
 
-## Utilisation
+1. Open `chrome://extensions` and enable **Developer mode**.
+2. Click **Load unpacked**.
+3. Select the repository folder.
 
-### Sur une page de produit
-1. Visitez une page de produit sur Vinted (ex: `https://www.vinted.fr/items/...`)
-2. Descendez jusqu'à la section "Dressing du membre"
-3. Une interface de filtrage apparaît automatiquement juste après le titre
-4. Cochez/décochez les tailles pour afficher ou masquer les articles correspondants
+After a code change, click the extension's reload button, then reload the Vinted tab.
 
-### Sur une page de profil membre
-1. Visitez une page de profil membre (ex: `https://www.vinted.fr/member/...`)
-2. Naviguez vers l'onglet "Annonces" si nécessaire
-3. Une interface de filtrage apparaît automatiquement en haut de la liste d'articles
-4. Cochez/décochez les tailles pour filtrer les articles
+Chrome reports an "Unrecognized manifest key 'browser_specific_settings'" warning. It is harmless: that key is only used by Firefox.
 
-**Note:** Toutes les tailles sont cochées par défaut (tous les articles visibles)
+### Firefox (140 or later)
 
-## Format des tailles
+1. Open `about:debugging#/runtime/this-firefox`.
+2. Click **Load Temporary Add-on…**.
+3. Select `manifest.json` at the repository root.
 
-L'extension détecte les tailles depuis le format Vinted :
-- Format: `W31 | FR 40 · Très bon état`
-- L'extension considère tout ce qui précède " · " comme une taille unique
-- Les tailles multiples (ex: "W31 | FR 40") sont traitées comme une seule taille
+After a code change, click **Reload** under the extension, then reload the Vinted tab.
 
-## Structure des fichiers
+Temporary add-ons are removed when Firefox closes. A permanent install requires a Mozilla-signed build (see [Packaging](#packaging)).
+
+## Usage
+
+1. Open an item page (`https://www.vinted.fr/items/...`) and scroll to "Dressing du membre", or open a member profile (`https://www.vinted.fr/member/...`).
+2. The size filter appears above the item grid.
+3. Check or uncheck sizes to show or hide the matching items.
+
+## How sizes are detected
+
+Sizes are read from each item's subtitle, e.g. `W31 | FR 40 · Très bon état`. Everything before ` · ` is treated as a single size, so `W31 | FR 40` is one size.
+
+## Project structure
 
 ```
 VintedExtension/
-├── manifest.json    # Configuration de l'extension (Manifest V3)
-├── content.js      # Script principal d'injection
-├── styles.css      # Styles pour l'interface de filtrage
-└── README.md       # Documentation
+├── manifest.json          # Manifest V3, shared by Chrome and Firefox
+├── content.js             # Builds the filter (isolated world)
+├── hydration-probe.js     # Detects React hydration (page's MAIN world)
+├── styles.css             # Filter styles
+├── _locales/fr/           # User-facing strings (French only for now)
+└── web-ext-config.cjs     # Settings for Mozilla's web-ext tool
 ```
 
-## Notes techniques
+## Technical notes
 
-- L'extension utilise `data-testid` pour cibler les éléments (plus stable que les classes CSS)
-- Un `MutationObserver` détecte les changements dynamiques dans le DOM
-- Compatible avec le chargement infini des articles (scroll)
-- Respecte le design et les couleurs de Vinted
+- Vinted is a server-side rendered React app. Anything inserted before React hydrates the page is wiped out, so `content.js` waits for `hydration-probe.js` to report hydration through DOM events. If the probe never answers, the filter is inserted after a short delay.
+- The probe runs in the page's `MAIN` world because React's internal `__reactFiber` properties are invisible from the isolated world. The filter itself runs in the isolated world so it can use the `i18n` API.
+- Vinted's CSS class names are hashed, so elements are selected with `data-testid` attributes only.
+- A permanent `MutationObserver` re-inserts the filter if Vinted re-renders the grid and picks up items loaded by infinite scroll.
 
-## Développement
+## Development
 
-### Prérequis
-- Chrome/Chromium (dernière version)
-- Mode développeur activé
+All user-facing text lives in `_locales/<lang>/messages.json`. French is currently the only locale.
 
-### Test
-1. Chargez l'extension en mode développeur
-2. Visitez différentes pages de produits Vinted avec des articles de différentes tailles
-3. Testez le filtrage avec plusieurs combinaisons de tailles
-4. Vérifiez que le scroll infini fonctionne correctement
+```sh
+npx web-ext lint    # Validate the extension against Firefox rules
+npx web-ext run     # Launch Firefox with the extension loaded
+```
 
-## Licence
+## Packaging
+
+```sh
+npx web-ext build   # Creates web-ext-artifacts/<name>-<version>.zip
+```
+
+The zip can be uploaded to [addons.mozilla.org](https://addons.mozilla.org/developers/) for signing (listed or unlisted), and to the Chrome Web Store.
+
+## License
 
 MIT
