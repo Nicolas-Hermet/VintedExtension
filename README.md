@@ -15,20 +15,23 @@ Browser extension for **Chrome** and **Firefox** that lets you filter items by s
 
 ### Chrome
 
-1. Clone or download this repository.
-2. Open `chrome://extensions/` and enable **Developer mode** (top right).
-3. Click **Load unpacked** and select the repository folder.
+1. Open `chrome://extensions` and enable **Developer mode**.
+2. Click **Load unpacked**.
+3. Select the repository folder.
 
-Chrome shows a harmless "Unrecognized manifest key 'browser_specific_settings'" warning: that key is only used by Firefox.
+After a code change, click the extension's reload button, then reload the Vinted tab.
+
+Chrome reports an "Unrecognized manifest key 'browser_specific_settings'" warning. It is harmless: that key is only used by Firefox.
 
 ### Firefox (140 or later)
 
-For a temporary install, either:
+1. Open `about:debugging#/runtime/this-firefox`.
+2. Click **Load Temporary Add-on…**.
+3. Select `manifest.json` at the repository root.
 
-- run `npx web-ext run` from the repository root, which opens a fresh Firefox profile with the extension loaded, or
-- open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on…** and select `manifest.json`.
+After a code change, click **Reload** under the extension, then reload the Vinted tab.
 
-Temporary add-ons are removed when Firefox closes. A permanent install requires the extension to be signed by Mozilla (see [Packaging](#packaging)).
+Temporary add-ons are removed when Firefox closes. A permanent install requires a Mozilla-signed build (see [Packaging](#packaging)).
 
 ## Usage
 
