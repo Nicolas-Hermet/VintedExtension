@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Vinted - Filtrage par taille",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Filtrez les articles du dressing du membre par taille sur Vinted",
   "permissions": [
     "activeTab"
@@ -14,7 +14,8 @@
       ],
       "js": ["content.js"],
       "css": ["styles.css"],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "world": "MAIN"
     }
   ]
 }
